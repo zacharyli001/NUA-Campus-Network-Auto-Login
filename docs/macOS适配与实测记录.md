@@ -208,3 +208,13 @@ carrier='{"yys":{"title":"服务类型","mode":"radiobutton","type":"0","data":[
 
 用户操作体验：连上哪张网就运行一次 `--set-password`，各存一次即可。
 建议 Windows 版也考虑同样的做法（现在只支持一套账号，换运营商的 Wi-Fi 就登不上）。
+
+
+---
+
+## 🔟 macOS 端后续增强（v1.1-macos）
+
+- **双击 `查看状态.command`**：不开终端就能看状态（在线/账号/服务/PID）
+- **系统通知**：掉线、登录成功、登录失败时弹 macOS 通知（`osascript display notification`，无依赖）
+- **自动检查更新**：最多 12 小时查一次 Release，有新版本提示。
+  注意坑：**预发布版本用 `/releases/latest` 查不到（返回 404）**，要用 `/releases?per_page=1` 取列表第一条。

@@ -30,6 +30,7 @@ SRC = HERE / "macos"
 
 FILES = [
     "AAA一键安装.command",
+    "查看状态.command",
     "卸载.command",
     "AAA使用说明.txt",
     "README.md",
@@ -38,7 +39,7 @@ FILES = [
     "install.sh",
     "uninstall.sh",
 ]
-EXECUTABLE = {"AAA一键安装.command", "卸载.command", "install.sh", "uninstall.sh", "campus_mac.py"}
+EXECUTABLE = {"AAA一键安装.command", "卸载.command", "查看状态.command", "install.sh", "uninstall.sh", "campus_mac.py"}
 
 
 def main() -> int:
