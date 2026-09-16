@@ -51,6 +51,8 @@ def main() -> int:
         try:
             raw = json.loads((SRC / "config.json").read_text(encoding="utf-8"))
             version = str(raw.get("version") or "1.1").lstrip("v")
+            # v1.2-macos -> 1.2 （包名里已经带 "macOS版"，不用重复）
+            version = version.replace("-macos", "").replace("-macOS", "")
         except (OSError, ValueError):
             version = "1.1"
     name = f"校园网自动登录_v{version}_macOS版"
