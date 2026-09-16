@@ -958,9 +958,51 @@ def _hhmm_to_minutes(value):
         return None
 
 
-def in_quiet_hours(cfg: dict, now=None) -> bool:
+def current_source_ip(cfg: dict) -> str:
+    """
+    取当前出口地址 —— 只查路由表和网卡, **不发任何包**。
+    用于夜间静默这种"连探测请求都不该发"的场景。
+    """
+    host = urllib.parse.urlsplit(cfg.get("portal_url", "")).hostname or "10.255.255.2"
+    iface = (route_get(host) or {}).get("interface") or ""
+    if not iface:
+        return ""
+    return (iface_addresses().get(iface) or {}).get("ipv4", "")
+
+
+def quiet_hours_exempt(cfg: dict, account: str) -> bool:
+    """
+    某些账号不受夜间静默限制。
+
+    学校规则(实测确认):
+      · 学生账号(学号, B 开头) → 只有周六日 24 小时可用;
+                                   非周六日的 00:00-06:00 登不上
+      · 教师账号(工号, M 开头) → 所有时段都可用
+
+    **两张校园网(移动/电信)都同时有学生和教师账号**, 所以静默必须按
+    【账号】判断, 而不是按网段 —— 同一个网段上两种账号都有。
+
+    因此:
+      quiet_hours 的 days 保持 [0,1,2,3,4](周一~周五) 就正好是学生账号的规则;
+      教师账号(M 开头)在这里豁免, 不受静默限制。
+
+    配置: "teacher_account_prefixes": ["M"], "quiet_hours_exempt_accounts": []
+    """
+    exempt = cfg.get("quiet_hours_exempt_accounts") or []
+    account = (account or "").strip()
+    if not account:
+        return False
+    prefixes = cfg.get("teacher_account_prefixes") or ["M"]
+    if any(account.upper().startswith(str(p).strip().upper()) for p in prefixes if str(p).strip()):
+        return True                      # 教师账号: 24 小时可用, 不静默
+    return any(account == str(a).strip() for a in exempt)
+
+
+def in_quiet_hours(cfg: dict, now=None, account: str = "") -> bool:
     """当前是否处在学校禁止认证的时段(默认周一~周五 00:00-06:00)。"""
     import datetime as _dt
+    if quiet_hours_exempt(cfg, account):
+        return False        # 该账号 24 小时可用, 不静默
     quiet = cfg.get("quiet_hours") or {}
     if not quiet.get("enabled"):
         return False
@@ -2073,12 +2115,14 @@ def cmd_watch(cfg: dict, net: NetEnv) -> int:
     while True:
         try:
             # ① 夜间静默: 学校这段时间不允许学生账号认证, 完全不发请求
-            if in_quiet_hours(cfg):
+            #    (但有些账号 24 小时可用, 那种账号不静默 —— 按账号判断, 不按网段)
+            quiet_account = account_for(cfg, net.source_ip or current_source_ip(cfg))
+            if in_quiet_hours(cfg, account=quiet_account):
                 quiet = cfg.get("quiet_hours") or {}
                 note_mode("quiet", "进入夜间静默时段 %s-%s: 学校这段时间不让认证, "
                                    "暂停所有网络请求, 到点自动恢复" % (
                                        quiet.get("start", "00:00"), quiet.get("end", "06:00")))
-                while in_quiet_hours(cfg):
+                while in_quiet_hours(cfg, account=quiet_account):
                     wait_for_change(300)
                 note_mode("normal", "夜间静默时段结束, 恢复常规检查")
                 state = STATE_UNKNOWN
